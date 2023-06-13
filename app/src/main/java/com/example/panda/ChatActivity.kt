@@ -1,92 +1,94 @@
 package com.example.panda
 
 import android.os.Bundle
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.DiffUtil
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import com.example.panda.adapter.MessageAdapter
+import com.example.panda.api.ApiUtilities
+import com.example.panda.databinding.ActivityChatBinding
+import com.example.panda.models.MessageModels
+import com.example.panda.models.request.ChatGenerateRequest
+import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType
+import okhttp3.RequestBody
 
-class ChatActivity : AppCompatActivity() {
+class ChatActivity :AppCompatActivity() {
+    private lateinit var binding : ActivityChatBinding
 
-    private lateinit var username: String
-    private lateinit var messageAdapter: MessageAdapter
-    private lateinit var messageRecyclerView: RecyclerView
+    var list = ArrayList<MessageModels>()
+    private lateinit var mLayoutManager: LinearLayoutManager
+    private lateinit var adapter: MessageAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_chat)
+        binding = ActivityChatBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        // Retrieve the username from the intent
-        username = intent.getStringExtra("username") ?: "Guest"
+        binding.backBtn.setOnClickListener {
+            finish()
+        }
+        mLayoutManager = LinearLayoutManager(this)
+        mLayoutManager.stackFromEnd = true
+        adapter = MessageAdapter(list)
+        binding.recyclerView.adapter = adapter
+        binding.recyclerView.layoutManager = mLayoutManager
 
-        // Set the welcome message
-        val welcomeTextView = findViewById<TextView>(R.id.welcomeTextView)
-        welcomeTextView.text = "Welcome, $username!"
-
-        // Create the adapter for the chat messages RecyclerView
-        messageAdapter = MessageAdapter(MessageDiffCallback())
-
-        // Set up the RecyclerView
-        messageRecyclerView = findViewById(R.id.messageRecyclerView)
-        messageRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@ChatActivity)
-            adapter = messageAdapter
+        binding.sendbtn.setOnClickListener {
+            if (binding.userMessage.text!!.isEmpty()) {
+                Toast.makeText(this,"Enter Message",Toast.LENGTH_SHORT).show()
+            } else {
+                callApi()
+            }
         }
 
-        // Send button click listener
-        val sendButton = findViewById<Button>(R.id.sendButton)
-        val messageEditText = findViewById<EditText>(R.id.messageEditText)
-        sendButton.setOnClickListener {
-            val message = messageEditText.text.toString().trim()
-            sendMessage(message)
-            messageEditText.text.clear()
-        }
-
-        // Send initial bot message
-        val initialBotMessage = Message("Hey, I am a Panda. I will be your assistant. I am still in development phase.", false)
-        sendMessage(initialBotMessage.text)
     }
 
-    private fun sendMessage(message: String) {
-        if (message.isNotEmpty()) {
-            val userMessage = Message(message, true)
-            val botMessage = Message("This is a bot response.", false)
+    private fun callApi() {
+        list.add(MessageModels( true,false,binding.userMessage.text.toString()))
+        adapter.notifyItemInserted(list.size - 1)
+        binding.recyclerView.recycledViewPool.clear()
+        binding.recyclerView.smoothScrollToPosition(list.size -1)
 
-            val messages = messageAdapter.currentList.toMutableList()
+        val apiInterface = ApiUtilities.getApiInterface()
+        val requestBody = RequestBody.create(MediaType.parse("application/json"),
+        Gson().toJson(
+            ChatGenerateRequest(
+                250,
+                "text-davinci-003",
+                binding.userMessage.text.toString(),
+                0.7
+            )
+        )
+        )
 
-            // Add user message
-            messages.add(userMessage)
+        val contentType = "application/json"
+        val authorization = "Bearer ${utils.API_KEY}"
 
-            // Add initial bot message
-            if (messages.isEmpty()) {
-                val initialBotMessage = Message("Hey, I am a Panda. I will be your assistant. I am still in development phase.", false)
-                messages.add(initialBotMessage)
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val response = apiInterface.generatChat(
+                    contentType, authorization, requestBody
+                )
+                val textResponse = response.choices.first().text
+                list.add(MessageModels(false,false,textResponse))
+                withContext(Dispatchers.Main) {
+                    adapter.notifyItemInserted(list.size - 1)
+                    binding.recyclerView.recycledViewPool.clear()
+                    binding.recyclerView.smoothScrollToPosition(list.size -1)
+                }
+                binding.userMessage.text!!.clear()
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@ChatActivity, e.message, Toast.LENGTH_SHORT).show()
+                }
             }
 
-            // Add bot response
-            messages.add(botMessage)
 
-            messageAdapter.submitList(messages)
-
-            // Scroll to the latest message
-            messageRecyclerView.scrollToPosition(messages.size - 1)
         }
     }
-
-
-    private class MessageDiffCallback : DiffUtil.ItemCallback<Message>() {
-        override fun areItemsTheSame(oldItem: Message, newItem: Message): Boolean {
-            return oldItem == newItem
-        }
-
-        override fun areContentsTheSame(oldItem: Message, newItem: Message): Boolean {
-            return oldItem.text == newItem.text && oldItem.isUserMessage == newItem.isUserMessage
-        }
-    }
-
 }
-
-

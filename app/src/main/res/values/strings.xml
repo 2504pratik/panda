@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Panda</string>
-    <string name="intro_message">I am a Panda bot.</string>
-    <string name="name_hint">Enter your name</string>
-    <string name="start_chat_button">Start chat</string>
-    <string name="name_error_message">Provide valid name</string>
+    <string name="chat_with_bot">Chat with Bot</string>
+    <string name="introTxt">Just an experiment!</string>
+    <string name="splashText">Hello! Panda at your service!</string>
+    <string name="hint">Type here</string>
 </resources>
