@@ -1,3 +1,1 @@
-# panda
-# This is a chatbot assistant app built using Kotlin.
-# It is currently in development phase.
+Panda Chatbot Assistant is an AI-powered chatbot application that utilizes the ChatGPT API. It provides a conversational interface to interact with users and assist them with various tasks. This repository contains the source code and additional resources related to the Panda Chatbot Assistant.
